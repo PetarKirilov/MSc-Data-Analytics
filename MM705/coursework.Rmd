@@ -1,0 +1,278 @@
+---
+title: "Multivariate Analysis Coursework"
+author: "Petar Kirilov"
+date: "14 May 2017"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+This paper is going to present the results from an analysis performed on four tasks. In the first task, two datasets are analysed and an attempt is made to distinguish which one is a mixture of normal distributions. In the second task, a music questionnaire is examined and the questions are classified into groups based on their underlying structure. The third task looks at the results from the Brexit referendum and attempts to identify the outcome of the referendum based on the demographic characteristics. In the final taks, a dataset is analysed, which contains some personal characteristics, and the purpose of the analysis is to distinguish whether the person earns above 50,000 US dollars.
+For the analysis of Tasks 1, 2 and 3 R statistical language is used and the report is done in RMarkdown. For Task 4, the programming language is Python, and the report is done in Jupyter Notebook and reported in the Appendix.
+
+## Identification of Distributions
+
+```{r, fig.height=12, fig.width=16.5}
+library(MASS)
+library(rgl)
+dset1 <- read.csv("D:/University of Brighton/2016-2017 Data Analytics MSc/2016 MM705 - Multivariate Analysis and Statistical Modelling OPTIONAL SEM 2 20CR/Coursework/FINAL/task1samples/sample-57-1.csv")
+#remove the first column
+dset1$X <- NULL
+pairs(dset1, asp = 1)
+```
+
+From the plot of the dataset, it does not seem that the dataset contains a mixture of distributions. However, it might be hidden, so further analysis is needed. The next piece of code will perform a principal component analysis on the dataset and will plot the principal components.
+```{r, fig.height=12, fig.width=16.5}
+PCAdset1 <- princomp(dset1)
+summary(PCAdset1)
+pairs(PCAdset1$scores, asp = 1)
+plot3d(dset1)
+```
+
+It seems more visible now from the principal component plot, that there seems to be a mixture of normal distributions - when looking at the pair plots between PC2 and PC3, three distinct distributions can be identified. Furthermore, when looking at the 3D chart (plot3d() from the rgl package) it is evident that it is a mixture of 3 distributions with the same covariance matrix. Unfortunately the 3D graph cannot be interactively produced in the paper, so only a few screenshots were taken to compare and contrast the two datasets.
+
+The analysis of the second dataset is below - firstly, the data is loaded and plotted.
+```{r, fig.height=12, fig.width=16.5}
+dset2 <- read.csv("D:/University of Brighton/2016-2017 Data Analytics MSc/2016 MM705 - Multivariate Analysis and Statistical Modelling OPTIONAL SEM 2 20CR/Coursework/FINAL/task1samples/sample-57-2.csv")
+dset2$X <- NULL
+pairs(dset2, asp = 1)
+```
+
+It seems normal from the simple plot. The next step would be to apply principal component analysis and check the plot of the principal components.
+```{r, fig.height=12, fig.width=16.5}
+PCAdset2 <- princomp(dset2)
+summary(PCAdset2)
+pairs(PCAdset2$scores, asp = 1)
+plot3d(dset2)
+```
+
+The plot of the PC's does not depict anything unusual.
+
+## EMI Music Questionnaire
+This section will analyse the EMI Music Data Science dataset taken from the Hackathon Kaggle competition. The dataset consists of 48645 observations and 27 attributes. It holds information on the answers of respondents to 19 questions regarding their musical attitude, with each answer ranging from 0 to 100, representing the person's level of agreement with the given statement. Also contained is some personal data of the respondents.
+```{r, message=FALSE}
+library(MVA)
+library(Hmisc)
+library(psych)
+library(GPArotation)
+library(Rtsne)
+library(cluster)
+
+emi <- read.csv("D:/University of Brighton/2016-2017 Data Analytics MSc/2016 MM705 - Multivariate Analysis and Statistical Modelling OPTIONAL SEM 2 20CR/Coursework/FINAL/users.csv")
+dim(emi)
+```
+Below are the first few lines of the dataset.
+```{r}
+head(emi)
+```
+A check is performed to see if there is any missing values in the dataset.
+```{r}
+any(is.na(emi))
+sapply(emi, function(x) mean(is.na(x)))
+mean(is.na(emi))
+```
+It seems that there is some missing data in the dataset, however it is only 2.524%. Furthermore, the proportion of missing values is outputted - Q18 and Q19 seem to have the most missing values. However, the observations with the missing values will be kept as they contain information on the responses to the other questions and thus provide the classification analysis with more data, thus producing better results. The algorithms used will ignore the missing values so no manipulation of the missing data is needed.
+Furthermore, the questions were assigned to a variable to ease the analysis later and the responses to the questions were assigned to a new variable.
+```{r}
+keys <- as.vector(c("I enjoy actively searching for and discovering music that I have never heard before",
+                  "I find it easy to find new music",
+                  "I am constantly interested in and looking for more music",
+                  "I would like to buy new music but I don't know what to buy",
+                  "I used to know where to find music but now I can't find what I want",
+                  "I am not willing to pay for music", 
+                  "I enjoy music primarily from going out to dance",
+                  "Music for me is all about nightlife and going out",
+                  "I am out of touch with new music",
+                  "My music collection is a source of pride",
+                  "Pop music is fun  it makes me feel good",
+                  "Pop music helps me to escape",
+                  "I want a multi media experience at my fingertips wherever I go",
+                  "I love technology and music is a big part of that technology",
+                  "People often ask my advice on music - what to listen to  where to buy it",
+                  "I would be willing to pay for the opportunity to buy new music pre-release",
+                  "I find seeing a new artist / band on TV a useful way of discovering new music",
+                  "I like to be at the cutting edge of new music",
+                  "I like to know about music before other people"))
+qs <- emi[,c(9:27)]
+for(i in seq_along(qs)){
+  Hmisc::label(qs[, i]) <- keys[i]
+}
+cortest.bartlett(qs)
+KMO(qs)
+```
+A principal component analysis was done on the 19 questions with orthogonal rotation (varimax) to identify the hidden factors that can classify the questions. The Kaiser-Meyer-Olkin measure verified the sampling adequacy of the analysis with a KMO of 0.91 (superb according to Kaiser, 1974). Furthermore, all of the individual components had a KMO greater than 0.73, well above the acceptable level of 0.5. A further Bartlett test of sphericity was run on the dataset, the chi squared (171) was 526023.3, with a p value of 0, which shows that there is correlation between the components of the PCA. Eigenvalues for each component were calculated and shown in the R output named SS loadings below.
+
+```{r}
+qs.pca <- principal(qs, nfactors = 19, rotate = "none")
+qs.pca$values
+```
+
+From those eigenvalues, a specific cut-off needs to be established, in order to keep only the factors that explain the most variance. A popular method is to use the Kaiser criterion, which is conservative as it recommends keeping factors with eigenvalues greater than 1. This would result in keeping 4 factors. Another less-conservative criterion is the Jolliffe, which states that factors with eigenvalues greater than 0.7 should be kept, which indicates that 7 factors should be kept. However, Field et al. (2012) reports that with datasets which have less than 30 factors, the Keiser criterion is accurate and not overestimating the number of factors to retain. The scree plot represents the eigenvalues against the factor number, with the red line representing the Kaiser criterion - as the fifth component is very close (0.88) to the cut-off line, it is going to be included in the model as well. 
+
+```{r, fig.height=12, fig.width=16.5}
+plot(qs.pca$values, type = "b")
+abline(h=1, col = "red")
+```
+
+Factor loadings are a gauge of the substantive significance of a given variable to a given factor. Rotation maximises the loadings of each variable on one of the extracted factors while minimising the loadings on all other factors. With varimax rotation, the loadings have changed, but the explained variance and uniqueness as rotation cannot account for more or less variance in the variables pre and post rotation. Factor loadings are shown below in the R output.
+
+```{r}
+qs.pca.5.varimax <- principal(qs, nfactors = 5, rotate = "varimax")
+qs.pca.5.varimax$loadings
+```
+
+After the rotation, the PC1 might be music aficionados who love technology and like listening to the latest music hits before others. They also constantly look for new music and are willing to pay for pre-releases. PC3 might be pop music lovers' category. PC4 might be the respondents who are more outgoing and socially active - going out to clubs. PC2 might be respondents from the older population as their answers indicate that they do not know from where to get new music and are out of touch with new music. The final PC5 corresponds to people who are not willing to pay for music. This is represented on the diagram below.
+```{r, fig.height=12, fig.width=16.5}
+fa.diagram(qs.pca.5.varimax, simple = FALSE)
+```
+The next output is from the oblique rotation - the main difference between the oblique and varimax rotations is that the oblique does not have the assumption that the components are uncorrelated. 
+```{r}
+qs.pca.5.oblique <- principal(qs, nfactors = 5, rotate = "oblimin")
+print.psych(qs.pca.5.oblique, cut = 0.3, sort = TRUE)
+```
+
+Similar results are obtained for the principal components when the oblique rotation is performed. Another representation is below.
+
+```{r, fig.height=12, fig.width=16.5}
+fa.diagram(qs.pca.5.oblique, simple = FALSE)
+```
+
+A further analysis will be performed on the dataset to attempt to conclude a similar result, thus, to conclude that the results from the initial model are not due to pure chance. Hierarchical clustering will be performed, to attempt to cluster the questions into groups. The clustering algorithm starts with each object in its own cluster and then repeatedly merges the closest pair of clusters until there is only one cluster which contains everything. As the dataset consists of a questionnaire, a specific correlation measure needs to be employed as the traditional method (Pearson) uses distances between variables, whereas the Spearman correlation method uses ranks and is more appropriate for questionnaires. Furthermore, Ward's minimum variance criterion will be used for the hierarchical cluster analysis.
+A cut-off needs to be identified, from where the clusters start - it is usually 
+The red line represents the cut-off - anything underneath is clustered according to the dendogram.
+
+```{r, fig.height=12, fig.width=16.5}
+plot(varclus(data.matrix(qs), method = "ward.D2"), hang=-1)
+abline(h=1, col="red")
+qs.ward2 <- varclus(data.matrix(qs),method="ward.D2")
+print(qs.clusters.5 <- cutree(qs.ward2$hclust,h=1-(-0.1)))
+```
+
+The dendogram concludes that there are 5 cluster, which equates to the number of principal components identified earlier. Below are the questions from the first cluster.
+
+```{r}
+unname(label(qs)[which(qs.clusters.5==1)])
+```
+
+It seems that the questions that were clustered in the first cluster are the same as the questions classified under the first principal component PC1, which fits its category identified earlier as music aficionados. Next, the second cluster is printed.
+
+```{r}
+unname(label(qs)[which(qs.clusters.5==2)])
+```
+
+The second cluster almost fully matches the third principal component PC3 of older generation respondents which struggle to find new music. The only difference is that the question representing if the person is out of touch with new music (Q9) is classified with a different cluster.
+In the output below is the third cluster.
+
+```{r}
+unname(label(qs)[which(qs.clusters.5==3)])
+```
+
+This cluster classifies together Q9 and Q6 - being out of touch with new music and unwillingness to pay for music. This can be connected to the fifth principal component with the exception of including Q9.
+The fourth cluster is shown below.
+
+```{r}
+unname(label(qs)[which(qs.clusters.5==4)])
+```
+
+In it, the questions about pop music are clustered together (Q7 and Q8) - it matches the third principal component of pop music lovers. Finally, the last cluster is printed below.
+
+```{r}
+unname(label(qs)[which(qs.clusters.5==5)])
+```
+
+The cluster contains Q11 and Q12, which correspond to a person's level of social activity represented by going to night clubs. It equals the fourth principal component.
+
+As both the hierarchical clustering and the principal component analysis derived the same conclusion, it can be deduced that the analysis is not due to chance.
+
+A further experiment can be conducted by using the relatively new method. introduced in 2008 by van der Maaten and Hinton, called t-distributed Stochastic Neighbour Embedding, or t-SNE. T-SNE is mainly used for dimentionality reduction of visualising high-dimentional data. It achieves good results as it does not preserve distances between estimates, instead keeps density. Below is the output from the t-SNE, with different colours representing the different classifications of questions. One thing to note is that, as it has a stochastic element, the plot will be different on every run.
+
+```{r}
+qs.clust <- cutree(qs.ward2$hclust, h=1)
+plot(qs.tsne <- Rtsne(as.dist(1-rcorr(data.matrix(qs), type = "spearman")$r^2), perplexity = 5)$Y, type = "n")
+text(qs.tsne,labels=names(qs.clust),cex=0.6,col=qs.clust)
+```
+
+A similar result is achieved - one cluster is for Q11 and Q12, another one for Q7 and Q8, another for Q9 and Q6, a further one including Q4 and Q5 and the rest are in the fifth cluster. This classification exactly fits the output derived from the dendogram. This is another confirmation that the conclusions derived earlier are not due to chance.
+
+### Executive Summary
+
+A dataset containing answers to 19 questions was examined, with the aim being to try and group the different questions together. Three methods were used to group the questions together, and the three methods had very similar conclusions. The questions were classified into five groups:
+  - Music aficionados who love technology and like listening to the latest hits before others;
+  - Pop music lovers
+  - Socially active, who listen to music in clubs and discos;
+  - Respondents who are not aware from where they can get access to new music and are out of touch with new music;
+  - Respondents who are not willing to pay for music.
+The methods used to classify the questionnaire were principal component analysis, hierarchical clustering and t-SNE. The principal component analysis attempts to find underlying variables (principal components) that best differentiate the data points. The principal components are dimensions along which the data points are most spread out. The hierarchical clustering technique involve the creation of clusters that have a predefined ordering. The t-SNE method is used to reduce the dimentionality of the data and identify any clusters on a two dimentional plane.
+
+
+
+## Brexit Dataset
+
+This section will look at the Brexit dataset, containing ward-level results of the UK referendum, which took place in 2016 and is commonly referred to as Brexit. Also included are several demographic characteristics of the wards collected from the 2011 Census. The purpose of this analysis is to use the demographic characteristics to predict the referendum outcome.
+
+```{r}
+library(caret)
+library(psych)
+library(MASS)
+brexit <- read.csv("D:/University of Brighton/2016-2017 Data Analytics MSc/2016 MM705 - Multivariate Analysis and Statistical Modelling OPTIONAL SEM 2 20CR/Coursework/FINAL/BrexitVotingAndWardDemographicData.csv")
+str(brexit)
+brexit <- brexit[-42,]
+brexit$Outcome <- factor(brexit$Outcome)
+```
+
+The dataset contains 1039 instances and 69 features. Above are the summary statistics of the features. Row 42 was removed as the outcome from the referendum from that ward was a draw, which could be considered as a very rare instance.
+
+```{r}
+clbrex <- brexit[,c(6, 8, 9, 15:69)]
+```
+
+Next, the columns containing the Ward code, Counting area, Ward name, Remain, Leave, Population, Population over 16, Population Density, Nubmer of households, Mean age and Median age are removed. On the new dataset a logistic regression is performed, with a 5-fold cross-validation. The output contains the predictive statistics of the model - with an accuracy of 0.9164 and Cohen's Kappa of 0.8241, the predictions are quite good.The Akaike Information Criterion is 434.76 - this will be compared with the results from the other models.
+
+```{r}
+summary(train(Outcome ~ .,data=clbrex,method="glm",family="binomial",trControl=trainControl(method="cv",number=5)))
+train(Outcome ~ .,data=clbrex,method="glm",family="binomial",trControl=trainControl(method="cv",number=5))$results
+```
+
+One further improvement to the analysis would be to include less predictive variables in the model and observe is the summary statistics of the model have improved. The next output shows the performance of the model is only the education separation is used.
+
+```{r}
+summary(train(Outcome ~ No.qualification.Percent+Level.1.qualification.Percent+Level.2.qualification.Percent+Level.3.qualification.Percent+Level.4.or.above.qualification.Percent+Apprenticeship.qualifications.Percent+Other.qualifications.Percent,data=clbrex,method="glm",family="binomial",trControl=trainControl(method="cv",number=5)))
+train(Outcome ~ No.qualification.Percent+Level.1.qualification.Percent+Level.2.qualification.Percent+Level.3.qualification.Percent+Level.4.or.above.qualification.Percent+Apprenticeship.qualifications.Percent+Other.qualifications.Percent,data=clbrex,method="glm",family="binomial",trControl=trainControl(method="cv",number=5))$results
+```
+The summary statistics of the model, show a reduction in the model's predictive accuracy. Its AIC is 542.48, which is significantly higher than the previous model, thus the model's quality is worsening.
+Another split will be tested, where only the religion separation will be included.
+
+```{r}
+summary(train(Outcome ~ Christian+Buddhist+Hindu+Sikh+Muslim+Jewish+Other.religion+No.religion+Religion.not.stated,data=clbrex,method="glm",family="binomial",trControl=trainControl(method="cv",number=5)))
+train(Outcome ~ Christian+Buddhist+Hindu+Sikh+Muslim+Jewish+Other.religion+No.religion+Religion.not.stated,data=clbrex,method="glm",family="binomial",trControl=trainControl(method="cv",number=5))$results
+```
+
+With the new model, the prediction accurary reduced even more - its model statistics worsened. Its AIC is 848.46 reflecting the worsening performance.
+Another separation could be by the level of qualification and race. Results are below
+
+```{r}
+summary(train(Outcome ~ No.qualification.Percent+Level.1.qualification.Percent+Level.2.qualification.Percent+Level.3.qualification.Percent+Level.4.or.above.qualification.Percent+Apprenticeship.qualifications.Percent+Other.qualifications.Percent+White.British+White.Irish+White.Gypsy.or.Irish.Traveller+Other.White+Mixed.White.Black.Caribbean+Mixed.White.Black.African+Mixed.White.Asian+Other.Mixed+Indian+Pakistani+Bangladeshi+Chinese+Other.Asian+African+Caribbean+Other.Black+Arabs+Other.Ethnicity,data=clbrex,method="glm",family="binomial",trControl=trainControl(method="cv",number=5)))
+train(Outcome ~ No.qualification.Percent+Level.1.qualification.Percent+Level.2.qualification.Percent+Level.3.qualification.Percent+Level.4.or.above.qualification.Percent+Apprenticeship.qualifications.Percent+Other.qualifications.Percent+White.British+White.Irish+White.Gypsy.or.Irish.Traveller+Other.White+Mixed.White.Black.Caribbean+Mixed.White.Black.African+Mixed.White.Asian+Other.Mixed+Indian+Pakistani+Bangladeshi+Chinese+Other.Asian+African+Caribbean+Other.Black+Arabs+Other.Ethnicity,data=clbrex,method="glm",family="binomial",trControl=trainControl(method="cv",number=5))$results
+```
+
+This is the second best model so far, with summary statistics of 0.9048 accuracy and 0.7992 Cohen's Kappa. The model's AIC is 475.33 - it concludes the same as the previous measures that the model is good, but not as good as the initial one.
+
+```{r}
+summary(train(Outcome~ FT.Employed+PT.Employed+FT.Self.Employed+PT.Self.Employed+Students.Economically.Inactive+Unemployed+Retired+Economically.Inactive.Looking.after.home+Economically.Inactive.Disabled+Economically.Inactive.Other, data=clbrex, method = "glm", family="binomial", trControl=trainControl(method="cv", number=5)))
+train(Outcome~ FT.Employed+PT.Employed+FT.Self.Employed+PT.Self.Employed+Students.Economically.Inactive+Unemployed+Retired+Economically.Inactive.Looking.after.home+Economically.Inactive.Disabled+Economically.Inactive.Other, data=clbrex, method = "glm", family="binomial", trControl=trainControl(method="cv", number=5))$results
+```
+
+```{r}
+summary(train(Outcome~ Home.Owned.Outright+Home.Owned.On.Loan+Shared.Ownership+Social.Rent+Private.Rent+Living.Rent.Free, data=clbrex, method = "glm", family="binomial", trControl=trainControl(method="cv", number=5)))
+train(Outcome~ Home.Owned.Outright+Home.Owned.On.Loan+Shared.Ownership+Social.Rent+Private.Rent+Living.Rent.Free, data=clbrex, method = "glm", family="binomial", trControl=trainControl(method="cv", number=5))$results
+```
+
+```{r}
+summary(train(Outcome~ Very.bad.health+Bad.health+Fair.Health+Good.health+Very.Good.Health, data=clbrex, method = "glm", family="binomial", trControl=trainControl(method="cv", number=5)))
+train(Outcome~ Very.bad.health+Bad.health+Fair.Health+Good.health+Very.Good.Health, data=clbrex, method = "glm", family="binomial", trControl=trainControl(method="cv", number=5))$results
+```
