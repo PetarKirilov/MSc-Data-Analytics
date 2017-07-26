@@ -1,0 +1,72 @@
+---
+title: "Test prep"
+author: "Petar Kirilov"
+date: "26 February 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+
+
+
+```{r cars}
+library(lattice)
+colony <- read.csv("D:/University of Brighton/2016-2017 Data Analytics MSc/2016 MM705 - Multivariate Analysis and Statistical Modelling OPTIONAL SEM 2 20CR/colony.csv")
+plot(colony)
+lines(colony) #line connecting the instances
+abline(lm(colony$Count~colony$Time), col="red") # regression line (y~x) 
+lines(lowess(colony$Time,colony$Count), col="blue") # lowess line (x,y)
+summary(colony.model <- aov(Count~Time, data = colony)) 
+summary(colony.lm.model <- lm(Count~Time, data = colony))
+#the estimate for the model intercept
+```
+From the output of the linear model, the estimate for the model intercept is -5093.5 and the coefficient measuring the slope of the relationship is 2617.7 and info on the standard error is provided in the Coefficients table. We can see that the test of significance of the model coefficients is also summarised in the table => there is a strong evidence to believe that the coefficient is significantly different to zero - as time increases, so does the number of bacteria.
+
+Using the regression equation $y=\alpha+\beta*x$ derived from the above output, the count after 3.5 hours would be:
+``` {predict}
+colony.lm.model$coefficients[1]+3.5*colony.lm.model$coefficients[2]
+```
+
+Next, we need to investigate whether the various assumptions underpinning the linear regression are valid
+
+``` {assumptions}
+xyplot(resid(colony.lm.model) ~ fitted(colony.lm.model),
+  xlab = "Fitted Values",
+  ylab = "Residuals",
+  main = "Residual Diagnostic Plot",
+  panel = function(x, y, ...)
+  {
+    panel.grid(h = -1, v = -1)
+    panel.abline(h = 0)
+    panel.xyplot(x, y, ...)
+  }
+)
+qqmath( ~ resid(colony.lm.model),
+  xlab = "Theoretical Quantiles",
+  ylab = "Residuals"
+)
+```
+
+## Question 2
+
+
+
+```{sales}
+sales <- read.csv("D:/University of Brighton/2016-2017 Data Analytics MSc/2016 MM705 - Multivariate Analysis and Statistical Modelling OPTIONAL SEM 2 20CR/sales.csv")
+summary(sales.aov.model1 <- aov(Sales~(Shelf.Height == "Eye level")+(Shelf.Height == "Waist level"), data = sales))
+```
+The above ANOVA analysis on Eye level and Waist level shows that Eye level does not have an effect but Waist level has an effect. The next ANOVA is on Waist level and Knee level:
+```{anovasales}
+summary(sales.aov.model2 <- aov(Sales~(Shelf.Height == "Eye level")+(Shelf.Height == "Knee level"), data = sales))
+```
+The above ANOVA shows that the Knee level also has an effect and its mean is different.
+Next, the assumptions need to be checked. The below three plots will be used:
+```{assumptions}
+plot(sales.aov.model1, which = c(1,2,5))
+plot(sales.aov.model2, which = c(1,2,5))
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
