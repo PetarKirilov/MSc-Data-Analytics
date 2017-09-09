@@ -1,5 +1,5 @@
 #ex1
-  #ex1 from problem sheet
+  #ex1 from problem sheet in class
 #a)
 dpois(2,0.5*8) 
 #b)
