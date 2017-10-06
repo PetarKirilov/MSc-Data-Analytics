@@ -1,0 +1,10 @@
+data noise;
+infile 'C:\Users\Rocky\Desktop\soncheto stochastic MM707\TEST.csv' delimiter=',';
+input white;
+proc print;
+run;
+proc sgscatter data=noise;
+run;
+proc arima data=noise;
+identify var=white;
+run;
